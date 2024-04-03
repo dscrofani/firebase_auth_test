@@ -126,6 +126,114 @@ since we can't park the node server there anyway why not just host it all togeth
 Heroku might be a good first option here with a lower tier paid plan
 and in that case why not just use session storage there (Redis, mongo etc.)
 For that matter then, why use Firebase auth at all - seems it's the only Google piece
-Should we convert to just real open auth 2.0 or use google identity platform
+Should we convert to just real open auth 2.0 or use google identity platform?
+
+Or at this point which of the following architectures do we use?
+
+**********
+Firebase
+  - Auth
+  - client side hosting
+  - session store
+  - user DB data (on authentication we need to access authorization data we store)
+  - other app data
+
+Alt Hosting Provider (AWS, Heroku, Google Cloud ...) we have to pay for this
+  - Node app with 'drop in' SSL solution
+**********
 
 
+
+**********
+Firebase
+  - Auth
+  - session store
+  - user DB data (on authentication we need to access authorization data we store)
+  - other app data
+
+Alt Hosting Provider (AWS, Heroku, Google Cloud ...) we have to pay for this
+  - Node app with 'drop in' SSL solution
+  - client side hosting
+**********
+
+
+
+**********
+Firebase
+  - Auth
+  - client side hosting
+  - session store
+  - user DB data (on authentication we need to access authorization data we store)
+  - other app data
+
+Alt Hosting Provider (Digital Ocean, Linux droplets etc) we have to pay for this
+  - Node app behind nginx/apache reverse proxy with self-managed SSL
+**********
+
+
+
+**********
+Firebase
+  - Auth only
+
+Alt Hosting Provider (AWS, Heroku, Google Cloud ...) we have to pay for this
+  - Node app with 'drop in' SSL solution
+  - client side hosting
+  - session store
+  - user DB data (on authentication we need to access authorization data we store)
+  - other app data
+**********
+
+
+
+**********
+Firebase
+  - Auth only
+
+Alt Hosting Provider (Digital Ocean, Linux droplets etc) we have to pay for this
+  - Node app behind nginx/apache reverse proxy with self-managed SSL
+  - client side hosting
+  - session store
+  - user DB data (on authentication we need to access authorization data we store)
+  - other app data
+**********
+
+
+
+**********
+Keep everything together hosted on some other cloud platform their own other drop-in auth solution. For that matter, keep on firebase but use paind plan and dispense with node server to use cloud functions.
+
+
+
+_________--------_________
+
+Note, github flagged my Google API key as a "secret" visible in code on a repo.
+Really this is not an issue. It's a client side key
+
+Here are security recommendations that do apply to protect when using client-side keys:
+
+Security Measures:
+
+A. Firebase Database and Storage Security Rules: Ensure you have properly configured your Firebase Realtime Database, Firestore, and Storage security rules to control access based on authentication status, user IDs, and other attributes.
+
+B. Firebase Authentication Configuration: In the Firebase Console, you can specify which domains are allowed to use your Firebase project's API keys for authentication, effectively preventing unauthorized use from non-listed domains.
+
+    1. Authorized Domains:
+    This is indeed the list you manage in the Firebase Console under Authentication -> Sign-in method -> Authorized domains. These are the domains from which Firebase Authentication requests are allowed, ensuring that authentication attempts are made only through your recognized web app domains, including localhost for development purposes. This prevents unauthorized websites from using your Firebase configuration to initiate sign-in requests.
+
+    2. Sign-in Methods Configuration:
+    Firebase Authentication allows you to configure various sign-in methods, such as email/password, Google, Facebook, Twitter, etc. Part of securing your application involves:
+
+    Enabling only the authentication providers you need.
+    Configuring each provider correctly, including setting up OAuth consent screens and API keys for third-party providers.
+    For email/password sign-in, ensuring strong password policies if applicable.
+    3. Security Rules for Firebase Services:
+    While not part of the Authentication configuration per se, how you use Firebase Authentication is closely tied to your security rules in Firebase Firestore, Realtime Database, and Storage. These rules define who can read or write data based on their authentication status and other attributes. For example, you might restrict data access to only authenticated users or even further to specific user IDs.
+
+    4. Firebase App Check:
+    Firebase App Check helps protect your backend resources from abusive traffic, such as unauthorized access. It works by ensuring that only your authenticated and authorized app instances can access your Firebase services and APIs. While optional, it adds an additional layer of security by verifying that requests to your backend services are coming from your legitimate, unmodified app.
+
+    5. Multi-Factor Authentication (MFA):
+    For added security, especially in apps handling sensitive information, you might consider enabling Multi-Factor Authentication if using Firebase Authentication's email/password sign-in method. This requires users to provide two or more verification factors to gain access, further securing user accounts beyond just the initial password.
+
+C. API Key Restrictions: For added security, consider applying restrictions to your Firebase API keys via the Google Cloud Console. While the Firebase API keys used in web applications are limited in what actions they can perform without proper authentication and authorization, you might have other API keys in your project that should be restricted based on the services they're intended to access.
