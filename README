@@ -1,0 +1,131 @@
+package firebase is installed via npm but not needed
+this client-side library would be used if web bundling
+but for the time being we're using a CDN for our firebase imports
+
+configuring the firebase project is the biggest part of this work; the web UI is meh
+there is a lot of clicking around
+
+I did not use Google Cloud platform but just Firebase console instead
+Apparently you can do it from either but Firebase console has the simplified UI
+I didn't find the UI that nice.
+
+Project Overview > project settings > Service accounts
+You need a service account to use the admin sdk from your server to verify tokens
+You need to generate a new private key. This json file needs to be in your project dir
+
+You need to eneble white listed domains under the Authentication section
+This is for the token which the client gets form signin and sends via fetch (POST) to server
+Authentication > Authorized domains
+You will have localhost there by default and this subsumes all ports (ie 3000)
+You will have the firebase hosting url (if you have set up for hosting)
+
+Firebase hosting is pointless since we need a server anyway for node etc.
+
+You have to enable an actual web app for your Firebase project. This is not clear
+I firebase project is not already a web app (can contain Android, iOS, web apps etc.)
+Use </> icon to add an actual web app. Or click + Add app
+From here you get your firebaseConfig data which you will need in client-side js
+
+Also in client-side js you need to import firebase function from sdks you need
+This used to be done using web bundling but they now offer import from cdn 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/      firebasejs/10.0.0/firebase-auth.js";
+Note that the version numbers (10.0.0) may change leading to files not being loaded
+
+Client need to explicitly send the token to its backend server via post
+Be careful that getIdToken() does return a promise so await it or use .then()
+One problem I encountered not knowing this was trying to grab the token too soon
+The token itself is only available after the promise resolves
+Only then did I send to my backend
+note the header with the  'Authorization': `Bearer ${token}`
+This has to be this way
+
+On the server I used Express as middleware and wrote a separate checAuth() function
+I put that function in a separate file and exported it as a module for use in server.js
+This was just for organization. There is no problem using the firebase admin object
+Firbase admin object is instantiated and initialized in the server and will be made global
+That is how the sdk handles it. So there is access to this object inside checkAuth module
+Note that checkAuthMiddleware module must also import the firebase-admin node module 
+const admin = require('firebase-admin');
+
+Dependencies are:
+"dependencies": {
+    "express": "^4.19.1",
+    "express-session": "^1.18.0",
+    "firebase": "^10.9.0",
+    "firebase-admin": "^12.0.0"
+}
+But it's important to realize that firebase is a client-side module (and we don't need it)
+Since we aren't web bundling but using import from cdn. 
+We do need express, express-session (ultimately), and firebase-admin. 
+those are server-side modules
+
+index.html previously had a few script tags included for firebase 
+<!-- <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script> -->
+These not needed since we are importing fuctions from cdn sdk in our client js (app.js)
+
+Biggest PITA was in server.js, needing to create the server account and DL the json key
+There's no indication of this 
+but, yeah, how could you expect to link your server to the firebase project without it
+Apparently you can use an env variable (see the code instead)
+Gogoel docs/tutorials just provide a default
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    //credential: admin.credential.applicationDefault(),
+});
+note that I commented it out and made my credential point to json key I put in project root
+DL the json key when you create the service account and do not share it 
+
+Note that middleware checkAuth() function adds a property to the req object if the token verifies
+req.user = decodedToken; is added
+when next() calls the next function in the stack, which is the route handler for the POST,
+req.user is available within that function so we set req.session.user = { uid: req.user.uid };
+
+TODO
+remember to change the default secret key for express-sessions
+also, we need to pick a legit session store for deployment
+we can use firebase realtime or firestore for this, I'm sure there is a node module
+
+client side code can be hosted on firebase also if we want
+but we need somewhere to host the node server
+that will need to be probably behind an nginx 
+we need an SSL cert and https since token must be sent to backend server encrypted
+
+To deploy our mode server, we could use prefab HTTPS:
+Heroku, Google Cloud Platform, AWS, etc. with provided SSL cert
+If we do other custom host for the server we have to obtain SSL cert like Let's Encrypt (which Configure node to use HTTPS by setting up an HTTPS server in node first 
+Use the https module SSL certificate files as in this example code:
+
+const https = require('https');
+const fs = require('fs');
+
+const options = {
+  key: fs.readFileSync('path/to/your/private.key'),
+  cert: fs.readFileSync('path/to/your/certificate.crt')
+};
+
+https.createServer(options, (req, res) => {
+  res.writeHead(200);
+  res.end('hello world\n');
+}).listen(443);
+
+Obviously this is more work. 
+
+Maybe a better approach to use reverse proxy server (nginx or Apache) in front of node The reverse proxy handles HTTPS connection then forwards requests to node server over HTTP locally manage SSL at the proxy level which separates it nicely
+I've done this setup in the past with Digital Ocean and nginx
+
+When deploying use environment variables for storing sensitive information
+ie service account key, database credentials, API keys. 
+
+There could be CORS issues if our backend server is hosted separately client-side application 
+we have to ensure we configure cross origin resource sharing to allow requests from a firebase-hosted front end.
+
+in the end i'm not sure why it makes much sense to host anything on Firebase
+since we can't park the node server there anyway why not just host it all together 
+Heroku might be a good first option here with a lower tier paid plan
+and in that case why not just use session storage there (Redis, mongo etc.)
+For that matter then, why use Firebase auth at all - seems it's the only Google piece
+Should we convert to just real open auth 2.0 or use google identity platform
+
+

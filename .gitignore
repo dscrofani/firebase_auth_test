@@ -1,0 +1,4 @@
+node_modules/
+
+#service account key
+authentication-test-c6bc1-firebase-adminsdk-ydhdf-d269572765.json
